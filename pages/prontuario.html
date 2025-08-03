@@ -18,9 +18,7 @@
         <div id="doctor-form-area" class="card p-3 mb-4" style="display: none;">
             <h5>Adicionar Nova Nota ao Prontuário</h5>
             <form id="prontuario-form">
-                <div class="mb-3">
-                    <textarea id="entry-text" class="form-control" rows="3" required></textarea>
-                </div>
+                <div class="mb-3"><textarea id="entry-text" class="form-control" rows="3" required></textarea></div>
                 <button type="submit" class="btn btn-info text-white">Salvar Nota</button>
             </form>
         </div>
@@ -33,12 +31,20 @@
     <script>
         protectPage(['paciente', 'medico']);
         const currentUser = getCurrentUser();
-        
+        const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
+
+        function findUserByEmail(email) {
+            return allUsers.find(user => user.email === email);
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const patientEmail = urlParams.get('paciente');
 
+        const patient = findUserByEmail(patientEmail);
+        const patientName = patient ? patient.nome : patientEmail;
+
         document.getElementById('back-link').href = `dashboard-${currentUser.role}.html`;
-        document.getElementById('prontuario-title').innerText = `Prontuário de: ${patientEmail}`;
+        document.getElementById('prontuario-title').innerText = `Prontuário de: ${patientName}`;
 
         if (currentUser.role === 'medico') {
             document.getElementById('doctor-form-area').style.display = 'block';
@@ -50,10 +56,13 @@
             prontuarioList.innerHTML = '<p class="text-muted">Nenhum registro encontrado.</p>';
         } else {
             entries.forEach(entry => {
+                const doctor = findUserByEmail(entry.doctor);
+                const doctorName = doctor ? `Dr(a). ${doctor.nome}` : entry.doctor;
+
                 prontuarioList.innerHTML += `
                     <div class="list-group-item">
                         <p class="mb-1">${entry.text}</p>
-                        <small class="text-muted">Registrado por ${entry.doctor} em ${new Date(entry.date).toLocaleString('pt-BR')}</small>
+                        <small class="text-muted">Registrado por ${doctorName} em ${new Date(entry.date).toLocaleString('pt-BR')}</small>
                     </div>`;
             });
         }

@@ -27,7 +27,7 @@
     <script>
         protectPage(['paciente']); 
         const currentUser = getCurrentUser();
-        document.getElementById('welcome-message').innerText = `Bem-vindo(a), ${currentUser.email}!`;
+        document.getElementById('welcome-message').innerText = `Bem-vindo(a), ${currentUser.nome}!`;
         
         const appointmentsList = document.getElementById('appointments-list');
         const myAppointments = getAppointments().filter(app => app.patientEmail === currentUser.email);

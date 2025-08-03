@@ -15,6 +15,14 @@
                     <h2 class="text-center mb-4">Criar Conta no SGHSS</h2>
                     <form id="cadastro-form">
                         <div class="mb-3">
+                            <label for="nome" class="form-label">Nome Completo</label>
+                            <input type="text" class="form-control" id="nome" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cpf" class="form-label">CPF</label>
+                            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+                        </div>
+                        <div class="mb-3">
                             <label for="email" class="form-label">Email</label>
                             <input type="email" class="form-control" id="email" required>
                         </div>
@@ -25,7 +33,7 @@
                         <div class="mb-3">
                             <label for="role" class="form-label">Eu sou um</label>
                             <select id="role" class="form-select" required>
-                                <option value="paciente">Paciente</option>
+                                <option value="paciente" selected>Paciente</option>
                                 <option value="medico">Médico</option>
                                 <option value="admin">Administrador</option>
                             </select>
@@ -42,14 +50,18 @@
     <script>
         document.getElementById('cadastro-form').addEventListener('submit', function(event) {
             event.preventDefault();
+            const nome = document.getElementById('nome').value;
+            const cpf = document.getElementById('cpf').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const role = document.getElementById('role').value;
-            const result = registerUser(email, password, role);
+            
+            const result = registerUser(nome, cpf, email, password, role);
+            
             const alertContainer = document.getElementById('alert-container');
             if (result === true) {
-                alertContainer.innerHTML = '<div class="alert alert-success">Sucesso! Redirecionando...</div>';
-                setTimeout(() => { window.location.href = '../index.html'; }, 1500);
+                alertContainer.innerHTML = '<div class="alert alert-success">Sucesso! Redirecionando para o login...</div>';
+                setTimeout(() => { window.location.href = '../index.html'; }, 2000);
             } else {
                 alertContainer.innerHTML = `<div class="alert alert-danger">${result}</div>`;
             }
