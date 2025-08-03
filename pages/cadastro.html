@@ -20,7 +20,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="cpf" class="form-label">CPF</label>
-                            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+                            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required maxlength="14">
                         </div>
                         <div class="mb-3">
                             <label for="email" class="form-label">Email</label>
@@ -46,7 +46,9 @@
             </div>
         </div>
     </div>
+
     <script src="../assets/js/auth.js"></script>
+
     <script>
         document.getElementById('cadastro-form').addEventListener('submit', function(event) {
             event.preventDefault();
@@ -65,6 +67,15 @@
             } else {
                 alertContainer.innerHTML = `<div class="alert alert-danger">${result}</div>`;
             }
+        });
+
+        document.getElementById('cpf').addEventListener('input', function (e) {
+            let value = e.target.value;
+            value = value.replace(/\D/g, "");
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = value;
         });
     </script>
 </body>

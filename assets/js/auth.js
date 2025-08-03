@@ -1,12 +1,52 @@
 const USERS_KEY = 'sghss_users';
 const SESSION_KEY = 'sghss_session';
 
+function validarCPF(cpf) {
+    cpf = cpf.replace(/[^\d]+/g, '');
+
+    if (cpf === '' || cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) {
+        return false;
+    }
+
+    let soma = 0;
+    let resto;
+
+    for (let i = 1; i <= 9; i++) {
+        soma += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) {
+        resto = 0;
+    }
+    if (resto !== parseInt(cpf.substring(9, 10))) {
+        return false;
+    }
+
+    soma = 0;
+    for (let i = 1; i <= 10; i++) {
+        soma += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) {
+        resto = 0;
+    }
+    if (resto !== parseInt(cpf.substring(10, 11))) {
+        return false;
+    }
+
+    return true;
+}
+
 function registerUser(nome, cpf, email, password, role) {
     const cleanedEmail = email.trim().toLowerCase();
     const cleanedCPF = cpf.trim().replace(/[.\-]/g, '');
 
     if (!nome || !cleanedCPF || !cleanedEmail || !password || !role) {
         return "Todos os campos são obrigatórios.";
+    }
+
+    if (!validarCPF(cleanedCPF)) {
+        return "CPF inválido. Por favor, verifique o número digitado.";
     }
 
     const users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
