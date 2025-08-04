@@ -21,9 +21,11 @@
                     <div class="mb-3">
                         <label for="specialty" class="form-label">Especialidade</label>
                         <select class="form-select" id="specialty" required>
-                            <option>Cardiologia</option>
-                            <option>Dermatologia</option>
-                            <option>Ortopedia</option>
+                            <option value="Cardiologia">Cardiologia</option>
+                            <option value="Clínica Geral">Clínica Geral</option>
+                            <option value="Dermatologia">Dermatologia</option>
+                            <option value="Ortopedia">Ortopedia</option>
+                            <option value="Pediatria">Pediatria</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -41,18 +43,36 @@
     <script src="../assets/js/database.js"></script>
     <script>
         protectPage(['paciente']);
-        document.getElementById('agendamento-form').addEventListener('submit', function(event) {
+        
+        document.getElementById('agendamento-form').addEventListener('submit', function(event) 
+        {
             event.preventDefault();
             const currentUser = getCurrentUser();
+            const alertContainer = document.getElementById('alert-container');
+            
             const appointmentData = {
                 patientEmail: currentUser.email,
                 specialty: document.getElementById('specialty').value,
                 date: document.getElementById('date').value
             };
-            saveAppointment(appointmentData);
-            document.getElementById('alert-container').innerHTML = '<div class="alert alert-success">Consulta agendada! Redirecionando...</div>';
-            setTimeout(() => { window.location.href = 'dashboard-paciente.html'; }, 2000);
+
+            const result = saveAppointment(appointmentData);
+
+            if (result === true) 
+            {
+                alertContainer.innerHTML = '<div class="alert alert-success">Consulta agendada com sucesso! Redirecionando...</div>';
+                setTimeout(() => { window.location.href = 'dashboard-paciente.html'; }, 2000);
+            } else 
+            {
+                alertContainer.innerHTML = `<div class="alert alert-danger">${result}</div>`;
+            }
         });
+
+        const dateInput = document.getElementById('date');
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        dateInput.min = now.toISOString().slice(0, 16);
+
     </script>
 </body>
 </html>

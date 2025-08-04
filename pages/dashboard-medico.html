@@ -103,7 +103,9 @@
     <script>
         protectPage(['medico']);
         const currentUser = getCurrentUser();
-        document.getElementById('welcome-message').innerText = `Bem-vindo(a), Dr(a). ${currentUser.nome}!`;
+        
+        const specialtyDisplay = currentUser.specialty ? `(${currentUser.specialty})` : '';
+        document.getElementById('welcome-message').innerText = `Bem-vindo(a), Dr(a). ${currentUser.nome}! ${specialtyDisplay}`;
 
         function findUserByEmail(email, usersList) {
             return usersList.find(user => user.email === email);
@@ -113,16 +115,21 @@
             const appointmentsListBody = document.getElementById('appointments-list');
             const allAppointments = getAppointments();
             const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
+            
+            const doctorSpecialty = currentUser.specialty;
+            
+            const filteredAppointments = allAppointments.filter(app => app.specialty === doctorSpecialty);
+
             appointmentsListBody.innerHTML = '';
             
-            if (allAppointments.length === 0) { 
-                appointmentsListBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">Nenhuma consulta agendada.</td></tr>';
+            if (filteredAppointments.length === 0) { 
+                appointmentsListBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">Nenhuma consulta agendada para a sua especialidade.</td></tr>';
                 return;
             } 
             
-            allAppointments.sort((a,b) => new Date(a.date) - new Date(b.date));
+            filteredAppointments.sort((a,b) => new Date(a.date) - new Date(b.date));
             
-            allAppointments.forEach(app => {
+            filteredAppointments.forEach(app => {
                 const patient = findUserByEmail(app.patientEmail, allUsers);
                 const patientName = patient ? patient.nome : app.patientEmail;
                 appointmentsListBody.innerHTML += `<tr onclick="window.location='prontuario.html?paciente=${app.patientEmail}'"><td>${new Date(app.date).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td><td>${patientName}</td><td><span class="badge bg-secondary">${app.specialty}</span></td><td class="text-center"><a href="prontuario.html?paciente=${app.patientEmail}" class="btn btn-outline-primary btn-sm" title="Acessar Prontuário"><i class="bi bi-file-earmark-text"></i></a></td></tr>`;

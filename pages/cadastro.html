@@ -38,6 +38,17 @@
                                 <option value="admin">Administrador</option>
                             </select>
                         </div>
+                        <div class="mb-3" id="specialty-field" style="display: none;">
+                            <label for="specialty" class="form-label">Especialidade</label>
+                            <select id="specialty" class="form-select">
+                                <option value="" selected disabled>Selecione a especialidade</option>
+                                <option value="Cardiologia">Cardiologia</option>
+                                <option value="Clínica Geral">Clínica Geral</option>
+                                <option value="Dermatologia">Dermatologia</option>
+                                <option value="Ortopedia">Ortopedia</option>
+                                <option value="Pediatria">Pediatria</option>
+                            </select>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100">Cadastrar</button>
                     </form>
                     <div id="alert-container" class="mt-3"></div>
@@ -48,17 +59,30 @@
     </div>
 
     <script src="../assets/js/auth.js"></script>
-
     <script>
+        const roleSelect = document.getElementById('role');
+        const specialtyField = document.getElementById('specialty-field');
+
+        roleSelect.addEventListener('change', function() {
+            if (this.value === 'medico') {
+                specialtyField.style.display = 'block';
+                document.getElementById('specialty').setAttribute('required', 'required');
+            } else {
+                specialtyField.style.display = 'none';
+                document.getElementById('specialty').removeAttribute('required');
+            }
+        });
+
         document.getElementById('cadastro-form').addEventListener('submit', function(event) {
             event.preventDefault();
             const nome = document.getElementById('nome').value;
             const cpf = document.getElementById('cpf').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const role = document.getElementById('role').value;
+            const role = roleSelect.value;
+            const specialty = document.getElementById('specialty').value;
             
-            const result = registerUser(nome, cpf, email, password, role);
+            const result = registerUser(nome, cpf, email, password, role, specialty);
             
             const alertContainer = document.getElementById('alert-container');
             if (result === true) {

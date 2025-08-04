@@ -37,12 +37,16 @@ function validarCPF(cpf) {
     return true;
 }
 
-function registerUser(nome, cpf, email, password, role) {
+function registerUser(nome, cpf, email, password, role, specialty = null) {
     const cleanedEmail = email.trim().toLowerCase();
     const cleanedCPF = cpf.trim().replace(/[.\-]/g, '');
 
     if (!nome || !cleanedCPF || !cleanedEmail || !password || !role) {
         return "Todos os campos são obrigatórios.";
+    }
+
+    if (role === 'medico' && (!specialty || specialty === '')) {
+        return "A especialidade é obrigatória para o perfil Médico.";
     }
 
     if (!validarCPF(cleanedCPF)) {
@@ -58,7 +62,12 @@ function registerUser(nome, cpf, email, password, role) {
         return "Este CPF já está cadastrado.";
     }
     
-    users.push({ nome, cpf: cleanedCPF, email: cleanedEmail, password, role });
+    const newUser = { nome, cpf: cleanedCPF, email: cleanedEmail, password, role };
+    if (role === 'medico') {
+        newUser.specialty = specialty;
+    }
+    
+    users.push(newUser);
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
     return true;
 }
