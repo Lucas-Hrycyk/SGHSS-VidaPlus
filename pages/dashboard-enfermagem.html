@@ -6,57 +6,225 @@
     <title>Painel da Enfermagem - SGHSS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <style>
+        .table-hover tbody tr:hover { background-color: #f1f1f1; cursor: default; }
+        .note-log-entry { border-left: 4px solid var(--bs-success); }
+        .leito-ocupado { cursor: pointer; }
+        .leito-ocupado:hover { transform: scale(1.1); transition: transform 0.1s ease-in-out; }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="#"><i class="bi bi-bandaid-fill me-2"></i>Painel da Enfermagem</a>
-            <button class="btn btn-light" onclick="logoutUser()">Sair</button>
+            <button class="btn btn-light" onclick="logoutUser()"><i class="bi bi-box-arrow-right me-1"></i>Sair</button>
         </div>
     </nav>
+
     <div class="container mt-4">
         <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h3 id="welcome-message" class="mb-0"></h3>
-            </div>
+            <div class="card-body"><h3 id="welcome-message" class="mb-0"></h3></div>
         </div>
         
-        <div class="card">
-            <div class="card-header">
-                <h4>Status dos Leitos</h4>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center" id="left-panel-header">
+                        <h4 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Pacientes Internados</h4>
+                    </div>
+                    <div class="card-body" id="left-panel-body">
+                        <!-- Conteúdo dinâmico: Tabela de pacientes ou notas de um paciente -->
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <p class="text-muted small">Visualização em tempo real do status dos leitos.</p>
-                <div id="leitos-view" class="d-flex flex-wrap gap-2 border p-3 rounded bg-light"></div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header"><h4 class="mb-0"><i class="bi bi-hospital me-2"></i>Status Geral dos Leitos</h4></div>
+                    <div class="card-body">
+                        <p class="text-muted small">Clique em um leito ocupado para ver as notas do paciente.</p>
+                        <div id="leitos-view" class="d-flex flex-wrap gap-2 border p-3 rounded bg-light"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header"><h4 class="mb-0"><i class="bi bi-body-text me-2"></i>Últimas Notas da Enfermagem (Geral)</h4></div>
+                    <div class="card-body">
+                        <div id="recent-notes-list" class="list-group"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
+    <div class="modal fade" id="addNoteModal" tabindex="-1">
+      <div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="noteModalTitle">Adicionar Nota de Enfermagem</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="add-note-form"><div class="mb-3"><label for="note-text" class="form-label">Descrição da Anotação:</label><textarea class="form-control" id="note-text" rows="4" required placeholder="Ex: Sinais vitais aferidos: PA 120/80, FC 75bpm..."></textarea></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success" onclick="handleSaveNote()">Salvar Nota</button></div></div></div>
+    </div>
+
     <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/database.js"></script>
     <script src="../assets/js/hospital.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         protectPage(['enfermeiro', 'tecnico_enfermagem']);
         const currentUser = getCurrentUser();
         const roleName = currentUser.role === 'enfermeiro' ? 'Enfermeiro(a)' : 'Técnico(a) de Enfermagem';
         document.getElementById('welcome-message').innerText = `Bem-vindo(a), ${currentUser.nome}! (Perfil: ${roleName})`;
 
-        function renderLeitos() {
+        const noteModal = new bootstrap.Modal(document.getElementById('addNoteModal'));
+        let currentPatientEmailForNote = null;
+
+        function openNoteModal(patientEmail, patientName) {
+            currentPatientEmailForNote = patientEmail;
+            document.getElementById('noteModalTitle').innerText = `Adicionar Nota para: ${patientName}`;
+            document.getElementById('add-note-form').reset();
+            noteModal.show();
+        }
+
+        function handleSaveNote() {
+            const noteText = document.getElementById('note-text').value;
+            if (!noteText.trim()) { alert("A anotação não pode estar vazia."); return; }
+            saveProntuarioEntry(currentPatientEmailForNote, noteText);
+            noteModal.hide();
+            renderRecentNotes();
+        }
+
+        function renderAdmittedPatients() {
+            const leftPanelBody = document.getElementById('left-panel-body');
+            leftPanelBody.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light"><tr><th>Nome do Paciente</th><th>CPF</th><th class="text-center">Leito</th><th class="text-center">Ações</th></tr></thead>
+                        <tbody id="admitted-patients-list"></tbody>
+                    </table>
+                </div>`;
+            
+            const users = JSON.parse(localStorage.getItem('sghss_users')) || [];
+            const leitos = getLeitos();
+            const patientListBody = document.getElementById('admitted-patients-list');
+            const occupiedBeds = leitos.filter(leito => leito.status === 'Ocupado');
+            
+            patientListBody.innerHTML = '';
+            if (occupiedBeds.length === 0) {
+                patientListBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">Nenhum paciente internado.</td></tr>';
+                return;
+            }
+            occupiedBeds.forEach(leito => {
+                const patient = users.find(u => u.email === leito.patientEmail);
+                if (patient) {
+                    const formattedCPF = patient.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+                    patientListBody.innerHTML += `<tr class="align-middle"><td>${patient.nome}</td><td>${formattedCPF}</td><td class="text-center"><span class="badge bg-primary">Leito ${leito.id}</span></td><td class="text-center"><button class="btn btn-sm btn-outline-success" onclick="openNoteModal('${patient.email}', '${patient.nome}')"><i class="bi bi-clipboard2-plus-fill me-1"></i>Adicionar Nota</button></td></tr>`;
+                }
+            });
+        }
+
+        function showPatientNotes(leitoId, patientEmail, patientName) {
+            const leftPanelHeader = document.getElementById('left-panel-header');
+            const leftPanelBody = document.getElementById('left-panel-body');
+            const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
+
+            leftPanelHeader.innerHTML = `
+                <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Notas de ${patientName} (Leito ${leitoId})</h4>
+                <button class="btn btn-sm btn-secondary" onclick="restoreDefaultView()"><i class="bi bi-arrow-left-circle me-1"></i>Voltar</button>
+            `;
+            
+            const notes = getProntuario(patientEmail);
+            leftPanelBody.innerHTML = '<div class="list-group list-group-flush" id="patient-notes-log"></div>';
+            const notesLogElement = document.getElementById('patient-notes-log');
+
+            if (notes.length === 0) {
+                notesLogElement.innerHTML = '<p class="text-center text-muted p-3">Nenhuma nota registrada para este paciente.</p>';
+                return;
+            }
+            
+            notes.forEach(note => {
+                const author = allUsers.find(u => u.email === note.doctor);
+                const formattedDate = new Date(note.date).toLocaleString('pt-BR');
+                notesLogElement.innerHTML += `
+                    <div class="list-group-item">
+                        <p class="mb-1">${note.text}</p>
+                        <small class="text-muted">Por: ${author ? author.nome : 'Desconhecido'} em ${formattedDate}</small>
+                    </div>`;
+            });
+        }
+        
+        function restoreDefaultView() {
+            const leftPanelHeader = document.getElementById('left-panel-header');
+            leftPanelHeader.innerHTML = '<h4 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Pacientes Internados</h4>';
+            renderAdmittedPatients();
+        }
+
+        function renderLeitosOverview() {
             const users = JSON.parse(localStorage.getItem('sghss_users')) || [];
             const leitos = getLeitos();
             const leitosDiv = document.getElementById('leitos-view');
             leitosDiv.innerHTML = '';
-            if (!leitos.length) { leitosDiv.innerHTML = '<p class="text-muted">Sistema de leitos não inicializado.</p>'; return; }
+
+            if (!leitos.length) { leitosDiv.innerHTML = '<p class="text-muted">Sistema não inicializado.</p>'; return; }
+
             leitos.forEach(leito => {
                 const isOcupado = leito.status === 'Ocupado';
                 const patient = isOcupado ? users.find(u => u.email === leito.patientEmail) : null;
-                const patientName = patient ? patient.nome : 'N/A';
-                const badgeClass = isOcupado ? 'bg-danger' : 'bg-success';
+                const patientName = patient ? patient.nome.replace(/'/g, "\\'") : 'N/A'; // Escapa aspas para o onclick
                 const title = `Leito ${leito.id} - ${isOcupado ? 'Ocupado por: ' + patientName : 'Livre'}`;
-                leitosDiv.innerHTML += `<span class="badge fs-6 p-2 ${badgeClass}" title="${title}">Leito ${leito.id}</span>`;
+                const onClickAction = isOcupado && patient ? `onclick="showPatientNotes(${leito.id}, '${patient.email}', '${patientName}')"` : '';
+                const extraClass = isOcupado ? 'leito-ocupado' : '';
+                
+                leitosDiv.innerHTML += `<span class="badge fs-6 p-2 ${isOcupado ? 'bg-danger' : 'bg-success'} ${extraClass}" title="${title}" ${onClickAction}>Leito ${leito.id}</span>`;
             });
         }
 
-        renderLeitos();
+        function renderRecentNotes() {
+            const allProntuarios = JSON.parse(localStorage.getItem('sghss_prontuarios')) || {};
+            const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
+            const notesListElement = document.getElementById('recent-notes-list');
+            let allNursingNotes = [];
+
+            for (const patientEmail in allProntuarios) {
+                allProntuarios[patientEmail].forEach(note => {
+                    const author = allUsers.find(u => u.email === note.doctor);
+                    if (author && (author.role === 'enfermeiro' || author.role === 'tecnico_enfermagem')) {
+                        allNursingNotes.push({ ...note, patientEmail });
+                    }
+                });
+            }
+
+            allNursingNotes.sort((a, b) => new Date(b.date) - new Date(a.date));
+            const recentNotes = allNursingNotes.slice(0, 5);
+
+            notesListElement.innerHTML = '';
+            if (recentNotes.length === 0) {
+                notesListElement.innerHTML = '<p class="text-center text-muted p-3">Nenhuma nota de enfermagem registrada recentemente.</p>';
+                return;
+            }
+
+            recentNotes.forEach(note => {
+                const patient = allUsers.find(u => u.email === note.patientEmail);
+                const author = allUsers.find(u => u.email === note.doctor);
+                const formattedDate = new Date(note.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year:'numeric', hour: '2-digit', minute: '2-digit' });
+                notesListElement.innerHTML += `
+                    <div class="list-group-item list-group-item-action note-log-entry">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Paciente: ${patient ? patient.nome : 'Desconhecido'}</h6>
+                            <small class="text-muted">${formattedDate}</small>
+                        </div>
+                        <p class="mb-1">${note.text}</p>
+                        <small class="text-muted">Registrado por: ${author ? author.nome : 'Desconhecido'}</small>
+                    </div>`;
+            });
+        }
+        
+        function init() {
+            restoreDefaultView();
+            renderLeitosOverview();
+            renderRecentNotes();
+        }
+
+        init();
     </script>
 </body>
 </html>
