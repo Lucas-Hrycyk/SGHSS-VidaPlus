@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel da Enfermagem - SGHSS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="bi bi-bandaid-fill me-2"></i>Painel da Enfermagem</a>
+            <button class="btn btn-light" onclick="logoutUser()">Sair</button>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h3 id="welcome-message" class="mb-0"></h3>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h4>Status dos Leitos</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Visualização em tempo real do status dos leitos.</p>
+                <div id="leitos-view" class="d-flex flex-wrap gap-2 border p-3 rounded bg-light"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/hospital.js"></script>
+    <script>
+        protectPage(['enfermeiro', 'tecnico_enfermagem']);
+        const currentUser = getCurrentUser();
+        const roleName = currentUser.role === 'enfermeiro' ? 'Enfermeiro(a)' : 'Técnico(a) de Enfermagem';
+        document.getElementById('welcome-message').innerText = `Bem-vindo(a), ${currentUser.nome}! (Perfil: ${roleName})`;
+
+        function renderLeitos() {
+            const users = JSON.parse(localStorage.getItem('sghss_users')) || [];
+            const leitos = getLeitos();
+            const leitosDiv = document.getElementById('leitos-view');
+            leitosDiv.innerHTML = '';
+            if (!leitos.length) { leitosDiv.innerHTML = '<p class="text-muted">Sistema de leitos não inicializado.</p>'; return; }
+            leitos.forEach(leito => {
+                const isOcupado = leito.status === 'Ocupado';
+                const patient = isOcupado ? users.find(u => u.email === leito.patientEmail) : null;
+                const patientName = patient ? patient.nome : 'N/A';
+                const badgeClass = isOcupado ? 'bg-danger' : 'bg-success';
+                const title = `Leito ${leito.id} - ${isOcupado ? 'Ocupado por: ' + patientName : 'Livre'}`;
+                leitosDiv.innerHTML += `<span class="badge fs-6 p-2 ${badgeClass}" title="${title}">Leito ${leito.id}</span>`;
+            });
+        }
+
+        renderLeitos();
+    </script>
+</body>
+</html>

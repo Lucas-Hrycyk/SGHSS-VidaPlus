@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Médico - SGHSS VidaPlus</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-info shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="bi bi-heart-pulse-fill me-2"></i>Painel do Médico</a>
+            <button class="btn btn-danger" onclick="logoutUser()"><i class="bi bi-box-arrow-right me-2"></i>Sair</button>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h3 id="welcome-message" class="mb-0"></h3>
+            </div>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white">
+                        <h4 class="mb-0"><i class="bi bi-calendar2-week me-2"></i>Agenda de Pacientes</h4>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Horário</th>
+                                        <th>Paciente</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appointments-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white">
+                        <h4 class="mb-0"><i class="bi bi-person-bounding-box me-2"></i>Gestão de Leitos</h4>
+                    </div>
+                    <div class="card-body">
+                         <div id="leitos-medico-list" class="row g-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="ocuparLeitoModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="ocupar-leito-form" onsubmit="confirmarOcupacao(); return false;"><p>Para qual paciente você deseja alocar este leito?</p><input type="text" id="patient-identifier-input" class="form-control" placeholder="Digite o Nome, CPF ou E-mail" required></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" onclick="confirmarOcupacao()">Confirmar Alocação</button></div></div></div></div>
+
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/database.js"></script>
+    <script src="../assets/js/hospital.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        protectPage(['medico']);
+        const currentUser = getCurrentUser();
+        document.getElementById('welcome-message').innerText = `Bem-vindo(a), Dr(a). ${currentUser.nome} (${currentUser.specialty})!`;
+        const ocuparLeitoModal = new bootstrap.Modal(document.getElementById('ocuparLeitoModal'));
+        let leitoASerOcupadoId = null;
+
+        function getStatusBadge(status) {
+            const statuses = { 'Pendente': 'bg-warning text-dark', 'Confirmada': 'bg-success', 'Cancelada': 'bg-danger' };
+            return `<span class="badge ${statuses[status] || 'bg-secondary'}">${status}</span>`;
+        }
+
+        function renderAppointments() {
+            const appointmentsListBody = document.getElementById('appointments-list');
+            const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
+            const filteredAppointments = getAppointments()
+                .filter(app => app.specialty === currentUser.specialty && app.status !== 'Cancelada' && new Date(app.date) >= new Date())
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            appointmentsListBody.innerHTML = '';
+            if (filteredAppointments.length === 0) {
+                appointmentsListBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-4">Nenhuma consulta futura agendada para sua especialidade.</td></tr>';
+                return;
+            } 
+            
+            filteredAppointments.forEach(app => {
+                const patient = allUsers.find(user => user.email === app.patientEmail);
+                let actionButtons = `<a href="prontuario.html?paciente=${app.patientEmail}" class="btn btn-outline-primary btn-sm" title="Acessar Prontuário"><i class="bi bi-file-earmark-text"></i></a>`;
+                if (app.status === 'Pendente') {
+                    actionButtons += `<button class="btn btn-outline-success btn-sm ms-2" onclick="confirmAppointmentAction('${app.id}')" title="Confirmar Consulta"><i class="bi bi-check-lg"></i></button>`;
+                }
+
+                appointmentsListBody.innerHTML += `
+                    <tr class="align-middle">
+                        <td>${new Date(app.date).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td>
+                        <td>${patient ? patient.nome : app.patientEmail}</td>
+                        <td>${app.type}</td>
+                        <td>${getStatusBadge(app.status)}</td>
+                        <td class="text-center">${actionButtons}</td>
+                    </tr>`;
+            });
+        }
+        
+        function confirmAppointmentAction(appId) {
+            if (confirm("Deseja confirmar esta consulta?")) {
+                confirmAppointment(appId);
+                renderAppointments();
+            }
+        }
+        
+        function renderLeitosMedico() {
+            const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
+            const leitos = getLeitos();
+            const leitosMedicoList = document.getElementById('leitos-medico-list');
+            leitosMedicoList.innerHTML = '';
+            leitos.forEach(leito => {
+                const isOcupado = leito.status === 'Ocupado';
+                const patient = isOcupado ? allUsers.find(u => u.email === leito.patientEmail) : null;
+                const patientName = patient ? patient.nome : '';
+                const cardClass = isOcupado ? 'border-danger bg-light' : 'border-success';
+                const iconClass = isOcupado ? 'bi-person-fill-check text-danger' : 'bi-person-plus-fill text-success';
+                const button = isOcupado ? `<button class="btn btn-sm btn-outline-success w-100" onclick="liberarLeito(${leito.id})"><i class="bi bi-box-arrow-left me-1"></i>Liberar</button>` : `<button class="btn btn-sm btn-danger w-100" onclick="abrirModalOcupar(${leito.id})"><i class="bi bi-box-arrow-in-right me-1"></i>Ocupar</button>`;
+                leitosMedicoList.innerHTML += `<div class="col-6"><div class="card h-100 ${cardClass}"><div class="card-body text-center p-2"><h6 class="card-title mb-1">Leito ${leito.id}</h6><i class="bi ${iconClass}" style="font-size: 1.5rem;"></i><p class="card-text small mb-2"><strong>${leito.status}</strong></p><small class="d-block text-muted" style="height: 1.2em;">${patientName}</small><div class="mt-2">${button}</div></div></div></div>`;
+            });
+        }
+        function abrirModalOcupar(leitoId) { leitoASerOcupadoId = leitoId; document.getElementById('modal-title').innerText = `Alocar Paciente ao Leito ${leitoId}`; document.getElementById('ocupar-leito-form').reset(); ocuparLeitoModal.show(); }
+        function confirmarOcupacao() { const allUsers=JSON.parse(localStorage.getItem('sghss_users'))||[]; const patientIdentifier=document.getElementById('patient-identifier-input').value; if(!patientIdentifier){alert("Insira a identificação do paciente.");return;} const searchTerm=patientIdentifier.trim().toLowerCase(); const cleanedSearchCPF=searchTerm.replace(/[.\-]/g,''); const patient=allUsers.find(u=>u.role==='paciente'&&(u.nome.toLowerCase().includes(searchTerm)||u.cpf===cleanedSearchCPF||u.email.toLowerCase()===searchTerm)); if(patient){updateLeitoStatus(leitoASerOcupadoId,'Ocupado',patient.email);renderLeitosMedico();ocuparLeitoModal.hide();}else{alert("Paciente não encontrado.");}}
+        function liberarLeito(leitoId) { if(confirm(`Tem certeza que deseja liberar o Leito ${leitoId}?`)){updateLeitoStatus(leitoId,'Livre',null);renderLeitosMedico();}}
+        
+        renderAppointments();
+        renderLeitosMedico();
+    </script>
+</body>
+</html>
