@@ -32,9 +32,7 @@
                     <div class="card-header d-flex justify-content-between align-items-center" id="left-panel-header">
                         <h4 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Pacientes Internados</h4>
                     </div>
-                    <div class="card-body" id="left-panel-body">
-                        <!-- Conteúdo dinâmico: Tabela de pacientes ou notas de um paciente -->
-                    </div>
+                    <div class="card-body" id="left-panel-body"></div>
                 </div>
             </div>
 
@@ -53,22 +51,16 @@
             <div class="col-12">
                 <div class="card shadow-sm">
                     <div class="card-header"><h4 class="mb-0"><i class="bi bi-body-text me-2"></i>Últimas Notas da Enfermagem (Geral)</h4></div>
-                    <div class="card-body">
-                        <div id="recent-notes-list" class="list-group"></div>
-                    </div>
+                    <div class="card-body"><div id="recent-notes-list" class="list-group"></div></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="modal fade" id="addNoteModal" tabindex="-1">
-      <div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="noteModalTitle">Adicionar Nota de Enfermagem</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="add-note-form"><div class="mb-3"><label for="note-text" class="form-label">Descrição da Anotação:</label><textarea class="form-control" id="note-text" rows="4" required placeholder="Ex: Sinais vitais aferidos: PA 120/80, FC 75bpm..."></textarea></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success" onclick="handleSaveNote()">Salvar Nota</button></div></div></div>
-    </div>
+    <div class="modal fade" id="addNoteModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="noteModalTitle">Adicionar Nota</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="add-note-form"><div class="mb-3"><label for="note-text" class="form-label">Anotação:</label><textarea class="form-control" id="note-text" rows="4" required></textarea></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success" onclick="handleSaveNote()">Salvar</button></div></div></div></div>
+    <div class="modal fade" id="administerMedModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="administerModalTitle">Administrar Medicação</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="administer-med-form"><div class="mb-3"><label for="medication-select" class="form-label">Medicamento</label><select class="form-select" id="medication-select" required></select></div><div class="mb-3"><label for="med-used-quantity" class="form-label">Quantidade Utilizada</label><input type="number" class="form-control" id="med-used-quantity" required min="1"></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" onclick="handleAdministerMedication()">Confirmar</button></div></div></div></div>
 
-    <script src="../assets/js/auth.js"></script>
-    <script src="../assets/js/database.js"></script>
-    <script src="../assets/js/hospital.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/auth.js"></script><script src="../assets/js/database.js"></script><script src="../assets/js/hospital.js"></script><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         protectPage(['enfermeiro', 'tecnico_enfermagem']);
         const currentUser = getCurrentUser();
@@ -76,154 +68,20 @@
         document.getElementById('welcome-message').innerText = `Bem-vindo(a), ${currentUser.nome}! (Perfil: ${roleName})`;
 
         const noteModal = new bootstrap.Modal(document.getElementById('addNoteModal'));
+        const administerMedModal = new bootstrap.Modal(document.getElementById('administerMedModal'));
         let currentPatientEmailForNote = null;
+        let currentPatientForMedication = null;
 
-        function openNoteModal(patientEmail, patientName) {
-            currentPatientEmailForNote = patientEmail;
-            document.getElementById('noteModalTitle').innerText = `Adicionar Nota para: ${patientName}`;
-            document.getElementById('add-note-form').reset();
-            noteModal.show();
-        }
-
-        function handleSaveNote() {
-            const noteText = document.getElementById('note-text').value;
-            if (!noteText.trim()) { alert("A anotação não pode estar vazia."); return; }
-            saveProntuarioEntry(currentPatientEmailForNote, noteText);
-            noteModal.hide();
-            renderRecentNotes();
-        }
-
-        function renderAdmittedPatients() {
-            const leftPanelBody = document.getElementById('left-panel-body');
-            leftPanelBody.innerHTML = `
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light"><tr><th>Nome do Paciente</th><th>CPF</th><th class="text-center">Leito</th><th class="text-center">Ações</th></tr></thead>
-                        <tbody id="admitted-patients-list"></tbody>
-                    </table>
-                </div>`;
-            
-            const users = JSON.parse(localStorage.getItem('sghss_users')) || [];
-            const leitos = getLeitos();
-            const patientListBody = document.getElementById('admitted-patients-list');
-            const occupiedBeds = leitos.filter(leito => leito.status === 'Ocupado');
-            
-            patientListBody.innerHTML = '';
-            if (occupiedBeds.length === 0) {
-                patientListBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">Nenhum paciente internado.</td></tr>';
-                return;
-            }
-            occupiedBeds.forEach(leito => {
-                const patient = users.find(u => u.email === leito.patientEmail);
-                if (patient) {
-                    const formattedCPF = patient.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-                    patientListBody.innerHTML += `<tr class="align-middle"><td>${patient.nome}</td><td>${formattedCPF}</td><td class="text-center"><span class="badge bg-primary">Leito ${leito.id}</span></td><td class="text-center"><button class="btn btn-sm btn-outline-success" onclick="openNoteModal('${patient.email}', '${patient.nome}')"><i class="bi bi-clipboard2-plus-fill me-1"></i>Adicionar Nota</button></td></tr>`;
-                }
-            });
-        }
-
-        function showPatientNotes(leitoId, patientEmail, patientName) {
-            const leftPanelHeader = document.getElementById('left-panel-header');
-            const leftPanelBody = document.getElementById('left-panel-body');
-            const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
-
-            leftPanelHeader.innerHTML = `
-                <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Notas de ${patientName} (Leito ${leitoId})</h4>
-                <button class="btn btn-sm btn-secondary" onclick="restoreDefaultView()"><i class="bi bi-arrow-left-circle me-1"></i>Voltar</button>
-            `;
-            
-            const notes = getProntuario(patientEmail);
-            leftPanelBody.innerHTML = '<div class="list-group list-group-flush" id="patient-notes-log"></div>';
-            const notesLogElement = document.getElementById('patient-notes-log');
-
-            if (notes.length === 0) {
-                notesLogElement.innerHTML = '<p class="text-center text-muted p-3">Nenhuma nota registrada para este paciente.</p>';
-                return;
-            }
-            
-            notes.forEach(note => {
-                const author = allUsers.find(u => u.email === note.doctor);
-                const formattedDate = new Date(note.date).toLocaleString('pt-BR');
-                notesLogElement.innerHTML += `
-                    <div class="list-group-item">
-                        <p class="mb-1">${note.text}</p>
-                        <small class="text-muted">Por: ${author ? author.nome : 'Desconhecido'} em ${formattedDate}</small>
-                    </div>`;
-            });
-        }
-        
-        function restoreDefaultView() {
-            const leftPanelHeader = document.getElementById('left-panel-header');
-            leftPanelHeader.innerHTML = '<h4 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Pacientes Internados</h4>';
-            renderAdmittedPatients();
-        }
-
-        function renderLeitosOverview() {
-            const users = JSON.parse(localStorage.getItem('sghss_users')) || [];
-            const leitos = getLeitos();
-            const leitosDiv = document.getElementById('leitos-view');
-            leitosDiv.innerHTML = '';
-
-            if (!leitos.length) { leitosDiv.innerHTML = '<p class="text-muted">Sistema não inicializado.</p>'; return; }
-
-            leitos.forEach(leito => {
-                const isOcupado = leito.status === 'Ocupado';
-                const patient = isOcupado ? users.find(u => u.email === leito.patientEmail) : null;
-                const patientName = patient ? patient.nome.replace(/'/g, "\\'") : 'N/A'; // Escapa aspas para o onclick
-                const title = `Leito ${leito.id} - ${isOcupado ? 'Ocupado por: ' + patientName : 'Livre'}`;
-                const onClickAction = isOcupado && patient ? `onclick="showPatientNotes(${leito.id}, '${patient.email}', '${patientName}')"` : '';
-                const extraClass = isOcupado ? 'leito-ocupado' : '';
-                
-                leitosDiv.innerHTML += `<span class="badge fs-6 p-2 ${isOcupado ? 'bg-danger' : 'bg-success'} ${extraClass}" title="${title}" ${onClickAction}>Leito ${leito.id}</span>`;
-            });
-        }
-
-        function renderRecentNotes() {
-            const allProntuarios = JSON.parse(localStorage.getItem('sghss_prontuarios')) || {};
-            const allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [];
-            const notesListElement = document.getElementById('recent-notes-list');
-            let allNursingNotes = [];
-
-            for (const patientEmail in allProntuarios) {
-                allProntuarios[patientEmail].forEach(note => {
-                    const author = allUsers.find(u => u.email === note.doctor);
-                    if (author && (author.role === 'enfermeiro' || author.role === 'tecnico_enfermagem')) {
-                        allNursingNotes.push({ ...note, patientEmail });
-                    }
-                });
-            }
-
-            allNursingNotes.sort((a, b) => new Date(b.date) - new Date(a.date));
-            const recentNotes = allNursingNotes.slice(0, 5);
-
-            notesListElement.innerHTML = '';
-            if (recentNotes.length === 0) {
-                notesListElement.innerHTML = '<p class="text-center text-muted p-3">Nenhuma nota de enfermagem registrada recentemente.</p>';
-                return;
-            }
-
-            recentNotes.forEach(note => {
-                const patient = allUsers.find(u => u.email === note.patientEmail);
-                const author = allUsers.find(u => u.email === note.doctor);
-                const formattedDate = new Date(note.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year:'numeric', hour: '2-digit', minute: '2-digit' });
-                notesListElement.innerHTML += `
-                    <div class="list-group-item list-group-item-action note-log-entry">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">Paciente: ${patient ? patient.nome : 'Desconhecido'}</h6>
-                            <small class="text-muted">${formattedDate}</small>
-                        </div>
-                        <p class="mb-1">${note.text}</p>
-                        <small class="text-muted">Registrado por: ${author ? author.nome : 'Desconhecido'}</small>
-                    </div>`;
-            });
-        }
-        
-        function init() {
-            restoreDefaultView();
-            renderLeitosOverview();
-            renderRecentNotes();
-        }
-
+        function openNoteModal(patientEmail, patientName) { currentPatientEmailForNote = patientEmail; document.getElementById('noteModalTitle').innerText = `Adicionar Nota para: ${patientName}`; document.getElementById('add-note-form').reset(); noteModal.show(); }
+        function handleSaveNote() { const noteText = document.getElementById('note-text').value; if (!noteText.trim()) { alert("A anotação não pode estar vazia."); return; } saveProntuarioEntry(currentPatientEmailForNote, noteText); noteModal.hide(); renderRecentNotes(); }
+        function openAdministerModal(patientEmail, patientName) { currentPatientForMedication = { email: patientEmail, name: patientName }; document.getElementById('administerModalTitle').innerText = `Administrar Medicação para: ${patientName}`; const select = document.getElementById('medication-select'), meds = getMedications(); select.innerHTML = '<option value="" selected disabled>Selecione...</option>'; meds.forEach(med => { const disabled = med.quantity <= 0 ? 'disabled' : ''; select.innerHTML += `<option value="${med.id}" ${disabled}>${med.name} (Estoque: ${med.quantity})</option>`; }); document.getElementById('administer-med-form').reset(); administerMedModal.show(); }
+        function handleAdministerMedication() { const medId = document.getElementById('medication-select').value, quantityUsed = parseInt(document.getElementById('med-used-quantity').value, 10); if (!medId || !quantityUsed || quantityUsed <= 0) { alert("Selecione um medicamento e insira uma quantidade válida."); return; } const result = updateMedicationStock(medId, -quantityUsed); if (result === true) { logMedicationUse(currentPatientForMedication.email, medId, quantityUsed); const medName = getMedications().find(m => m.id === medId).name; saveProntuarioEntry(currentPatientForMedication.email, `Medicação administrada: ${quantityUsed} unidade(s) de ${medName}.`); administerMedModal.hide(); alert("Medicação administrada e registrada!"); renderRecentNotes(); } else { alert(`Erro: ${result}`); } }
+        function renderAdmittedPatients() { const leftPanelBody = document.getElementById('left-panel-body'); leftPanelBody.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Paciente</th><th>CPF</th><th class="text-center">Leito</th><th class="text-center">Ações</th></tr></thead><tbody id="admitted-patients-list"></tbody></table></div>`; const users = JSON.parse(localStorage.getItem('sghss_users')) || [], leitos = getLeitos(), patientListBody = document.getElementById('admitted-patients-list'), occupiedBeds = leitos.filter(l => l.status === 'Ocupado'); patientListBody.innerHTML = ''; if (occupiedBeds.length === 0) { patientListBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">Nenhum paciente internado.</td></tr>'; return; } occupiedBeds.forEach(leito => { const patient = users.find(u => u.email === leito.patientEmail); if (patient) { const formattedCPF = patient.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"); patientListBody.innerHTML += `<tr class="align-middle"><td>${patient.nome}</td><td>${formattedCPF}</td><td class="text-center"><span class="badge bg-primary">Leito ${leito.id}</span></td><td class="text-center"><button class="btn btn-sm btn-outline-success" onclick="openNoteModal('${patient.email}', '${patient.nome}')"><i class="bi bi-clipboard2-plus-fill"></i> Nota</button><button class="btn btn-sm btn-outline-danger ms-2" onclick="openAdministerModal('${patient.email}', '${patient.nome}')"><i class="bi bi-eyedropper"></i> Medicação</button></td></tr>`; } }); }
+        function showPatientNotes(leitoId, patientEmail, patientName) { const leftPanelHeader = document.getElementById('left-panel-header'), leftPanelBody = document.getElementById('left-panel-body'), allUsers = JSON.parse(localStorage.getItem('sghss_users')) || []; leftPanelHeader.innerHTML = `<h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Notas de ${patientName} (Leito ${leitoId})</h4><button class="btn btn-sm btn-secondary" onclick="restoreDefaultView()"><i class="bi bi-arrow-left-circle me-1"></i>Voltar</button>`; const notes = getProntuario(patientEmail); leftPanelBody.innerHTML = '<div class="list-group list-group-flush" id="patient-notes-log"></div>'; const notesLogElement = document.getElementById('patient-notes-log'); if (notes.length === 0) { notesLogElement.innerHTML = '<p class="text-center text-muted p-3">Nenhuma nota registrada.</p>'; return; } notes.forEach(note => { const author = allUsers.find(u => u.email === note.doctor), formattedDate = new Date(note.date).toLocaleString('pt-BR'); notesLogElement.innerHTML += `<div class="list-group-item"><p class="mb-1">${note.text}</p><small class="text-muted">Por: ${author ? author.nome : 'Desconhecido'} em ${formattedDate}</small></div>`; }); }
+        function restoreDefaultView() { document.getElementById('left-panel-header').innerHTML = '<h4 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Pacientes Internados</h4>'; renderAdmittedPatients(); }
+        function renderLeitosOverview() { const users = JSON.parse(localStorage.getItem('sghss_users')) || [], leitos = getLeitos(), leitosDiv = document.getElementById('leitos-view'); leitosDiv.innerHTML = ''; if (!leitos.length) { leitosDiv.innerHTML = '<p class="text-muted">Sistema não inicializado.</p>'; return; } leitos.forEach(leito => { const isOcupado = leito.status === 'Ocupado', patient = isOcupado ? users.find(u => u.email === leito.patientEmail) : null, patientName = patient ? patient.nome.replace(/'/g, "\\'") : 'N/A', title = `Leito ${leito.id} - ${isOcupado ? 'Ocupado por: ' + patientName : 'Livre'}`, onClickAction = isOcupado && patient ? `onclick="showPatientNotes(${leito.id}, '${patient.email}', '${patientName}')"` : '', extraClass = isOcupado ? 'leito-ocupado' : ''; leitosDiv.innerHTML += `<span class="badge fs-6 p-2 ${isOcupado ? 'bg-danger' : 'bg-success'} ${extraClass}" title="${title}" ${onClickAction}>Leito ${leito.id}</span>`; }); }
+        function renderRecentNotes() { const allProntuarios = JSON.parse(localStorage.getItem('sghss_prontuarios')) || {}, allUsers = JSON.parse(localStorage.getItem('sghss_users')) || [], notesListElement = document.getElementById('recent-notes-list'); let allNursingNotes = []; for (const patientEmail in allProntuarios) { allProntuarios[patientEmail].forEach(note => { const author = allUsers.find(u => u.email === note.doctor); if (author && (author.role === 'enfermeiro' || author.role === 'tecnico_enfermagem')) { allNursingNotes.push({ ...note, patientEmail }); } }); } allNursingNotes.sort((a, b) => new Date(b.date) - new Date(a.date)); const recentNotes = allNursingNotes.slice(0, 5); notesListElement.innerHTML = ''; if (recentNotes.length === 0) { notesListElement.innerHTML = '<p class="text-center text-muted p-3">Nenhuma nota recente.</p>'; return; } recentNotes.forEach(note => { const patient = allUsers.find(u => u.email === note.patientEmail), author = allUsers.find(u => u.email === note.doctor), formattedDate = new Date(note.date).toLocaleString('pt-BR'); notesListElement.innerHTML += `<div class="list-group-item list-group-item-action note-log-entry"><div class="d-flex w-100 justify-content-between"><h6 class="mb-1">Paciente: ${patient ? patient.nome : 'Desconhecido'}</h6><small class="text-muted">${formattedDate}</small></div><p class="mb-1">${note.text}</p><small class="text-muted">Por: ${author ? author.nome : 'Desconhecido'}</small></div>`; }); }
+        function init() { restoreDefaultView(); renderLeitosOverview(); renderRecentNotes(); }
         init();
     </script>
 </body>
