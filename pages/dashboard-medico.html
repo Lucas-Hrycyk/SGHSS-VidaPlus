@@ -125,7 +125,7 @@
                 const cardClass = isOcupado ? 'border-danger bg-light' : 'border-success';
                 const iconClass = isOcupado ? 'bi-person-fill-check text-danger' : 'bi-person-plus-fill text-success';
                 const button = isOcupado ? `<button class="btn btn-sm btn-outline-success w-100" onclick="liberarLeito(${leito.id})"><i class="bi bi-box-arrow-left me-1"></i>Liberar</button>` : `<button class="btn btn-sm btn-danger w-100" onclick="abrirModalOcupar(${leito.id})"><i class="bi bi-box-arrow-in-right me-1"></i>Ocupar</button>`;
-                leitosMedicoList.innerHTML += `<div class="col-6"><div class="card h-100 ${cardClass}"><div class="card-body text-center p-2"><h6 class="card-title mb-1">Leito ${leito.id}</h6><i class="bi ${iconClass}" style="font-size: 1.5rem;"></i><p class="card-text small mb-2"><strong>${leito.status}</strong></p><small class="d-block text-muted" style="height: 1.2em;">${patientName}</small><div class="mt-2">${button}</div></div></div></div>`;
+                leitosMedicoList.innerHTML += `<div class="col-6"><div class="card h-100 ${cardClass}"><div class="card-body text-center p-2"><h6 class="card-title mb-1">Leito ${leito.id}</h6><i class="bi ${iconClass}" style="font-size: 1.5rem;"></i><p class="card-text small mb-2"><strong>${leito.status}</strong></p><small class="d-block text-muted text-truncate" style="height: 1.2em;" title="${patientName}">${patientName}</small><div class="mt-2">${button}</div></div></div></div>`;
             });
         }
         function abrirModalOcupar(leitoId) { leitoASerOcupadoId = leitoId; document.getElementById('modal-title').innerText = `Alocar Paciente ao Leito ${leitoId}`; document.getElementById('ocupar-leito-form').reset(); ocuparLeitoModal.show(); }
