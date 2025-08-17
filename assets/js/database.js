@@ -3,14 +3,29 @@ const PRONTUARIOS_KEY = 'sghss_prontuarios';
 const MEDICATIONS_KEY = 'sghss_medications';
 const MEDICATION_LOG_KEY = 'sghss_medication_log';
 
+function getOccupiedSlots(specialty, date) {
+    const appointments = getAppointments();
+    const occupiedTimes = appointments
+        .filter(app => app.specialty === specialty && app.date.startsWith(date) && app.status !== 'Cancelada')
+        .map(app => new Date(app.date).toTimeString().slice(0, 5));
+    return occupiedTimes;
+}
+
 function saveAppointment(appointmentData) {
     const allAppointments = getAppointments();
-    const isConflict = allAppointments.some(app => app.date === appointmentData.date && app.specialty === appointmentData.specialty && app.status !== 'Cancelada');
+    const isConflict = allAppointments.some(
+        app => app.date === appointmentData.date && 
+               app.specialty === appointmentData.specialty && 
+               app.status !== 'Cancelada' 
+    );
+
     if (isConflict) {
-        return "Horário indisponível! Já existe uma consulta marcada para esta especialidade neste mesmo dia e hora.";
+        return "Horário indisponível! Outro paciente pode ter agendado neste exato momento. Por favor, atualize a página e tente novamente.";
     }
+
     allAppointments.push(appointmentData);
     localStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(allAppointments));
+    
     return true;
 }
 

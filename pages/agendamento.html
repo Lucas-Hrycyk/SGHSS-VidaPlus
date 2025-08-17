@@ -4,13 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agendamento de Consulta - SGHSS</title>
-    <link rel="shortcut icon" type="imagex/png" href="../assets/img/hospital.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <style>
+        .time-slot {
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="../pages/dashboard-paciente.html">Voltar ao Painel</a>
+            <a class="navbar-brand" href="dashboard-paciente.html">Voltar ao Painel</a>
             <button class="btn btn-danger" onclick="logoutUser()">Sair</button>
         </div>
     </nav>
@@ -19,28 +24,40 @@
             <div class="card p-4">
                 <h3>Agendar Nova Consulta</h3>
                 <form id="agendamento-form">
-                    <div class="mb-3">
-                        <label for="specialty" class="form-label">Especialidade</label>
-                        <select class="form-select" id="specialty" required>
-                            <option value="Cardiologia">Cardiologia</option>
-                            <option value="Clínica Geral">Clínica Geral</option>
-                            <option value="Dermatologia">Dermatologia</option>
-                            <option value="Ortopedia">Ortopedia</option>
-                            <option value="Pediatria">Pediatria</option>
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="specialty" class="form-label">1. Escolha a Especialidade</label>
+                            <select class="form-select" id="specialty" required>
+                                <option value="Cardiologia">Cardiologia</option>
+                                <option value="Clínica Geral">Clínica Geral</option>
+                                <option value="Dermatologia">Dermatologia</option>
+                                <option value="Ortopedia">Ortopedia</option>
+                                <option value="Pediatria">Pediatria</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="type" class="form-label">Tipo de Consulta</label>
+                            <select class="form-select" id="type" required>
+                                <option value="Presencial" selected>Presencial</option>
+                                <option value="Telemedicina">Telemedicina</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label for="type" class="form-label">Tipo de Consulta</label>
-                        <select class="form-select" id="type" required>
-                            <option value="Presencial" selected>Presencial</option>
-                            <option value="Telemedicina">Telemedicina</option>
-                        </select>
+                        <label for="date-picker" class="form-label">2. Escolha o Dia</label>
+                        <input type="date" class="form-control" id="date-picker" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="date" class="form-label">Data e Hora</label>
-                        <input type="datetime-local" class="form-control" id="date" required>
+
+                    <div id="time-slots-container" class="mb-3" style="display: none;">
+                        <label class="form-label">3. Escolha o Horário</label>
+                        <div id="time-slots-grid" class="d-flex flex-wrap gap-2">
+                        </div>
+                        <div id="no-slots-message" class="text-muted mt-2" style="display: none;"></div>
                     </div>
-                    <button type="submit" class="btn btn-success">Confirmar Agendamento</button>
+
+                    <input type="hidden" id="selected-time" value="">
+                    
+                    <button type="submit" class="btn btn-success w-100">Confirmar Agendamento</button>
                 </form>
                 <div id="alert-container" class="mt-3"></div>
             </div>
@@ -51,39 +68,115 @@
     <script src="../assets/js/database.js"></script>
     <script>
         protectPage(['paciente']);
+
+        const specialtySelect = document.getElementById('specialty');
+        const datePicker = document.getElementById('date-picker');
+        const timeSlotsContainer = document.getElementById('time-slots-container');
+        const timeSlotsGrid = document.getElementById('time-slots-grid');
+        const noSlotsMessage = document.getElementById('no-slots-message');
+        const selectedTimeInput = document.getElementById('selected-time');
         
-        document.getElementById('agendamento-form').addEventListener('submit', function(event) 
-        {
+        const HORARIOS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+        function generateTimeSlots() {
+            const specialty = specialtySelect.value;
+            const selectedDate = datePicker.value;
+            
+            if (!selectedDate) {
+                timeSlotsContainer.style.display = 'none';
+                return;
+            }
+
+            const dateObj = new Date(selectedDate + 'T00:00:00');
+            const dayOfWeek = dateObj.getDay();
+
+            timeSlotsGrid.innerHTML = '';
+            timeSlotsContainer.style.display = 'block';
+
+            if (dayOfWeek === 5 || dayOfWeek === 6) {
+                noSlotsMessage.innerText = "Não há agendamentos disponíveis aos fins de semana.";
+                noSlotsMessage.style.display = 'block';
+                return;
+            }
+
+            const occupiedSlots = getOccupiedSlots(specialty, selectedDate);
+            let availableSlots = 0;
+
+            HORARIOS.forEach(time => {
+                const isOccupied = occupiedSlots.includes(time);
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `btn ${isOccupied ? 'btn-secondary disabled' : 'btn-outline-primary'} time-slot`;
+                button.innerText = time;
+                button.dataset.time = time;
+                if (isOccupied) {
+                    button.disabled = true;
+                } else {
+                    availableSlots++;
+                }
+                timeSlotsGrid.appendChild(button);
+            });
+
+            if (availableSlots > 0) {
+                noSlotsMessage.style.display = 'none';
+            } else {
+                noSlotsMessage.innerText = "Nenhum horário disponível para esta data. Por favor, selecione outro dia.";
+                noSlotsMessage.style.display = 'block';
+            }
+        }
+
+        specialtySelect.addEventListener('change', generateTimeSlots);
+        datePicker.addEventListener('change', generateTimeSlots);
+
+        timeSlotsGrid.addEventListener('click', function(event) {
+            if (event.target.classList.contains('time-slot') && !event.target.disabled) {
+                document.querySelectorAll('.time-slot.btn-primary').forEach(btn => {
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-primary');
+                });
+                event.target.classList.remove('btn-outline-primary');
+                event.target.classList.add('btn-primary');
+                selectedTimeInput.value = event.target.dataset.time;
+            }
+        });
+        
+        document.getElementById('agendamento-form').addEventListener('submit', function(event) {
             event.preventDefault();
-            const currentUser = getCurrentUser();
             const alertContainer = document.getElementById('alert-container');
+            const selectedDate = datePicker.value;
+            const selectedTime = selectedTimeInput.value;
+            
+            if (!selectedTime) {
+                alertContainer.innerHTML = `<div class="alert alert-warning">Por favor, escolha um horário disponível.</div>`;
+                return;
+            }
+
+            const fullDateTime = `${selectedDate}T${selectedTime}`;
             
             const appointmentData = {
                 id: 'app' + Date.now(),
-                patientEmail: currentUser.email,
-                specialty: document.getElementById('specialty').value,
+                patientEmail: getCurrentUser().email,
+                specialty: specialtySelect.value,
                 type: document.getElementById('type').value,
-                date: document.getElementById('date').value,
+                date: fullDateTime,
                 status: 'Pendente'
             };
 
             const result = saveAppointment(appointmentData);
 
-            if (result === true) 
-            {
+            if (result === true) {
                 alertContainer.innerHTML = '<div class="alert alert-success">Consulta agendada com sucesso! Redirecionando...</div>';
                 setTimeout(() => { window.location.href = 'dashboard-paciente.html'; }, 2000);
-            } else 
-            {
+            } else {
                 alertContainer.innerHTML = `<div class="alert alert-danger">${result}</div>`;
+                generateTimeSlots();
             }
         });
 
-        const dateInput = document.getElementById('date');
+        const dateInput = document.getElementById('date-picker');
         const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        dateInput.min = now.toISOString().slice(0, 16);
-
+        const today = now.toISOString().split('T')[0];
+        dateInput.min = today;
     </script>
 </body>
 </html>
